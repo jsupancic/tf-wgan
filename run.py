@@ -20,7 +20,7 @@ def make_parser():
   train_parser.add_argument('--lr', type=float, default=5e-5)
   train_parser.add_argument('--c', type=float, default=1e-2)
   train_parser.add_argument('--n-critic', type=int, default=5)
-  train_parser.add_argument('--n-batch', type=int, default=128)
+  train_parser.add_argument('--n-batch', type=int, default=32)
 
   return parser
 

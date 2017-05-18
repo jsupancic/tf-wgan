@@ -100,3 +100,7 @@ sftp-config.json
 
 # images
 *.png
+
+# temporary files
+*~
+logs/

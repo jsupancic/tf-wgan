@@ -12,7 +12,7 @@ from keras.layers.advanced_activations import LeakyReLU
 from keras.layers.core import Dense, Reshape, Flatten, Activation
 from keras.layers import Input
 from keras.models import Model
-from keras import initializations
+from keras import initializers
 
 from tensorflow.examples.tutorials.mnist import input_data
 
@@ -198,18 +198,18 @@ def make_dcgan_discriminator(Xk_d):
   x = Convolution2D(nb_filter=64, nb_row=4, nb_col=4, subsample=(2,2),
         activation=None, border_mode='same', init=conv2D_init,
         dim_ordering='th')(Xk_d)
-  # x = BatchNormalization(mode=2, axis=1)(x) # <- makes things much worse!
+  # x = BatchNormalization(axis=1)(x) # <- makes things much worse!
   x = LeakyReLU(0.2)(x)
 
   x = Convolution2D(nb_filter=128, nb_row=4, nb_col=4, subsample=(2,2),
         activation=None, border_mode='same', init=conv2D_init,
         dim_ordering='th')(x)
-  x = BatchNormalization(mode=2, axis=1)(x)
+  x = BatchNormalization(axis=1)(x)
   x = LeakyReLU(0.2)(x)
 
   x = Flatten()(x)
   x = Dense(1024, init=conv2D_init)(x)
-  x = BatchNormalization(mode=2)(x)
+  x = BatchNormalization()(x)
   x = LeakyReLU(0.2)(x)
 
   d = Dense(1, activation=None)(x)
@@ -221,18 +221,18 @@ def make_dcgan_generator(Xk_g, n_lat, n_chan=1):
   n_g_hid2 = 128  # size of hidden layer in generator layer 2
 
   x = Dense(n_g_hid1, init=conv2D_init)(Xk_g)
-  x = BatchNormalization(mode=2, )(x)
+  x = BatchNormalization()(x)
   x = Activation('relu')(x)
 
   x = Dense(n_g_hid2*7*7, init=conv2D_init)(x)
   x = Reshape((n_g_hid2, 7, 7))(x)
-  x = BatchNormalization(mode=2, axis=1)(x)
+  x = BatchNormalization(axis=1)(x)
   x = Activation('relu')(x)
 
   x = Deconvolution2D(64, 5, 5, output_shape=(128, 64, 14, 14), 
         border_mode='same', activation=None, subsample=(2,2), 
         init=conv2D_init, dim_ordering='th')(x)
-  x = BatchNormalization(mode=2, axis=1)(x)
+  x = BatchNormalization(axis=1)(x)
   x = Activation('relu')(x)
 
   g = Deconvolution2D(n_chan, 5, 5, output_shape=(128, n_chan, 28, 28), 
