@@ -160,7 +160,7 @@ class DCGAN(object):
 
   def gen(self, noise):
     X_g_in, X_d_in = self.inputs
-    feed_dict = { X_g_in : noise, K.learning_phase() : False }
+    feed_dict = { X_g_in : noise, K.learning_phase() : True }
     return self.sess.run(self.P, feed_dict=feed_dict)
 
   def train_g(self, feed_dict):
