@@ -43,7 +43,7 @@ def train(args):
 
   # set up optimization params
   opt_params = { 'lr' : args.lr, 'c' : args.c, 'n_critic' : args.n_critic }
-
+  
   # create model
   if args.model == 'dcgan':
     model = models.DCGAN(n_dim=n_dim, n_chan=n_channels, opt_params=opt_params)

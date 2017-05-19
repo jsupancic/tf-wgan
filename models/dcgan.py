@@ -1,8 +1,10 @@
 import os
 import time
 import numpy as np
+import numpy.matlib 
 import keras.backend as K
 import tensorflow as tf
+import code
 
 import matplotlib.pyplot as plt
 
@@ -97,7 +99,7 @@ class DCGAN(object):
 
     # # summarization
     # summary = tf.summary.merge_all()
-    # summary_writer = tf.summary.FileWriter(self.logdir, self.sess.graph)
+    summary_writer = tf.summary.FileWriter(logdir, self.sess.graph)
 
     # init model
     init = tf.global_variables_initializer()
@@ -107,8 +109,9 @@ class DCGAN(object):
     step = 0
     for epoch in xrange(n_epoch):
       start_time = time.time()
-      
-      for X_batch in iterate_minibatches(X_train, n_batch, shuffle=True):
+
+      speedup = 1 # values greater than 1 skip some examples in an epoch
+      for X_batch in iterate_minibatches(X_train, speedup * n_batch, shuffle=True):
         step += 1
 
         # load the batch
@@ -135,12 +138,24 @@ class DCGAN(object):
       samples = self.gen(np.random.rand(128, 100).astype('float32'))
       samples = samples[:42]
       fname = logdir + '/dcgan.mnist_samples-%d.png' % (epoch+1)
+      image_of_samples = (samples.reshape(6, 7, 28, 28)
+                          .transpose(0, 2, 1, 3)
+                          .reshape(6*28, 7*28))
       plt.imsave(fname,
-                 (samples.reshape(6, 7, 28, 28)
-                         .transpose(0, 2, 1, 3)
-                         .reshape(6*28, 7*28)),
+                 image_of_samples,
                  cmap='gray')
-
+      #image_of_samples_png = io.BytesIO()
+      #plt.savefig(image_of_samples_png, format='png')
+      #image_of_samples_png.seek(0)
+      print("++tf.summary.image")
+      #tf.summary.scalar('tr_g_err', tr_g_err)
+      #code.interact(local=locals())
+      image_of_samples3d = np.rollaxis(np.tile(image_of_samples,(3,1,1,1)),0,4);
+      tf.summary.image('mnist_samples_%d' % (epoch + 1), image_of_samples3d)
+      merged = tf.summary.merge_all()
+      summary = self.sess.run(merged)
+      summary_writer.add_summary(summary, epoch)
+      
       saver.save(self.sess, checkpoint_root, global_step=step)
 
   def gen(self, noise):
