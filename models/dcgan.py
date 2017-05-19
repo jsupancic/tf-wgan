@@ -106,12 +106,13 @@ class DCGAN(object):
     self.sess.run(init)
 
     # train the model
+    speedup = 8 # values greater than 1 skip some examples in an epoch
     step = 0
+    n_epoch = int(n_epoch * speedup)
     for epoch in xrange(n_epoch):
       start_time = time.time()
-
-      speedup = 1 # values greater than 1 skip some examples in an epoch
-      for X_batch in iterate_minibatches(X_train, speedup * n_batch, shuffle=True):
+      
+      for X_batch in iterate_minibatches(X_train, int(speedup * n_batch), shuffle=True):
         step += 1
 
         # load the batch
@@ -137,7 +138,7 @@ class DCGAN(object):
       # take samples
       samples = self.gen(np.random.rand(128, 100).astype('float32'))
       samples = samples[:42]
-      fname = logdir + '/dcgan.mnist_samples-%d.png' % (epoch+1)
+      fname = logdir + '/dcgan.mnist_samples-%07d.png' % (epoch+1)
       image_of_samples = (samples.reshape(6, 7, 28, 28)
                           .transpose(0, 2, 1, 3)
                           .reshape(6*28, 7*28))
@@ -151,7 +152,7 @@ class DCGAN(object):
       #tf.summary.scalar('tr_g_err', tr_g_err)
       #code.interact(local=locals())
       image_of_samples3d = np.rollaxis(np.tile(image_of_samples,(3,1,1,1)),0,4);
-      tf.summary.image('mnist_samples_%d' % (epoch + 1), image_of_samples3d)
+      tf.summary.image('mnist_samples_%07d' % (epoch + 1), image_of_samples3d)
       merged = tf.summary.merge_all()
       summary = self.sess.run(merged)
       summary_writer.add_summary(summary, epoch)
@@ -160,7 +161,7 @@ class DCGAN(object):
 
   def gen(self, noise):
     X_g_in, X_d_in = self.inputs
-    feed_dict = { X_g_in : noise, K.learning_phase() : True }
+    feed_dict = { X_g_in : noise, K.learning_phase() : False }
     return self.sess.run(self.P, feed_dict=feed_dict)
 
   def train_g(self, feed_dict):
