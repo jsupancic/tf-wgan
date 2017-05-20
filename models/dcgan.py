@@ -66,7 +66,10 @@ class DCGAN(object):
     self.loss_g = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=d_fake, labels=one))
     self.loss_d = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=d_real, labels=one)) \
                 + tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=d_fake, labels=zero))
-
+    #code.interact(local=locals())
+    #self.summary_loss_g = tf.summary.scalar('loss_g', self.loss_g)
+    #self.summary_loss_d = tf.summary.scalar('loss_d', self.loss_d)
+    
     # compute and store discriminator probabilities
     self.d_real = tf.reduce_mean(tf.sigmoid(d_real))
     self.d_fake = tf.reduce_mean(tf.sigmoid(d_fake))
@@ -120,6 +123,8 @@ class DCGAN(object):
         # take training step
         # self.train_g(feed_dict)
         # self.train_d(feed_dict)
+        #feed_dict['generator/batch_normalization_1/keras_learning_phase'] = tf.placeholder(
+        #  dtype='bool', name='keras_learning_phase')
         self.train(feed_dict)
 
       # log results at the end of batch
@@ -132,6 +137,7 @@ class DCGAN(object):
         tr_g_err, tr_d_err, tr_p_real, tr_p_fake)
       print "  validation disc_loss/gen_loss/p_real/p_fake:\t\t{:.4f}\t{:.4f}\t{:.2f}\t{:.2f}".format(
         va_g_err, va_d_err, va_p_real, va_p_fake)
+      #code.interact(local=locals())
       #tf.summary.scalar('tr_g_err', tr_g_err)
       #tf.summary.scalar('tr_d_err', tr_d_err)
       #tf.summary.scalar('tr_p_real', tr_p_real)
@@ -144,10 +150,11 @@ class DCGAN(object):
       # take samples
       samples = self.gen(np.random.rand(128, 100).astype('float32'))
       samples = samples[:42]
+      _,_,im_rows, im_cols = samples.shape
       fname = logdir + '/dcgan.mnist_samples-%07d.png' % (epoch+1)
-      image_of_samples = (samples.reshape(6, 7, 28, 28)
+      image_of_samples = (samples.reshape(6, 7, im_rows, im_cols)
                           .transpose(0, 2, 1, 3)
-                          .reshape(6*28, 7*28))
+                          .reshape(6*im_rows, 7*im_cols))
       plt.imsave(fname,
                  image_of_samples,
                  cmap='gray')
@@ -156,14 +163,12 @@ class DCGAN(object):
       #image_of_samples_png.seek(0)
       print("++tf.summary.image")
       #tf.summary.scalar('tr_g_err', tr_g_err)
-      #code.interact(local=locals())
       image_of_samples3d = np.uint8(
-         255*np.rollaxis(np.tile(image_of_samples,(3,1,1,1)),0,4))
-      tf.summary.image('mnist_samples_%07d' % (epoch + 1), image_of_samples3d)
-      merged = tf.summary.merge_all()
-      summary = self.sess.run(merged)
+        255*np.rollaxis(np.tile(image_of_samples,(3,1,1,1)),0,4))
+      im_summary = tf.summary.image('mnist_samples_%07d' % (epoch + 1), image_of_samples3d)
+      #merged = tf.summary.merge_all()
+      summary = self.sess.run(im_summary)
       summary_writer.add_summary(summary, epoch)
-      
       saver.save(self.sess, checkpoint_root, global_step=step)
 
   def gen(self, noise):
@@ -180,7 +185,7 @@ class DCGAN(object):
     return loss_d
 
   def train(self, feed_dict):
-    self.sess.run(self.train_op, feed_dict=feed_dict)
+    return self.sess.run(self.train_op, feed_dict=feed_dict)
 
   def load_batch(self, X_train, noise, train=True):
     X_g_in, X_d_in = self.inputs
@@ -249,31 +254,34 @@ def make_dcgan_generator(Xk_g, n_lat, n_chan=1):
   x = BatchNormalization()(x)
   x = Activation('relu')(x)
 
-  x = Dense(n_g_hid2*(7)*(7))(x)
+  first_feats_dim = 5;
+  x = Dense(n_g_hid2*(first_feats_dim)*(first_feats_dim))(x)
   x = BatchNormalization()(x)
   x = Activation('relu')(x)
-  x = Reshape((n_g_hid2, 7, 7))(x)
+  x = Reshape((n_g_hid2, first_feats_dim, first_feats_dim))(x)
 
   dcs = Deconvolution2D(64, 5, 5, output_shape=(128, 64, 14, 14), 
                         border_mode='same', activation=None, subsample=(2,2), 
                         init='orthogonal', dim_ordering='th')  
-  #dcv = Deconvolution2D(64, 5, 5, output_shape=(128, 64, 15, 15), 
-  #                      border_mode='valid', activation=None, subsample=(2,2), 
-  #                      init='orthogonal', dim_ordering='th')
+  print ("DCS %s" % str(dcs.compute_output_shape((1,n_g_hid2,first_feats_dim,first_feats_dim))))    
+  dcv = Deconvolution2D(64, 5, 5, output_shape=(128, 64, 13, 13), 
+                        border_mode='valid', activation=None, subsample=(2,2), 
+                        init='orthogonal', dim_ordering='th')
+  print ("DCV %s" % str(dcv.compute_output_shape((1,n_g_hid2,first_feats_dim,first_feats_dim))))
   #dcs.compute_output_shape();
-  #code.interact(local=locals())
-  x = dcs(x)
+  #
+  x = dcv(x)
   x = BatchNormalization(axis=1)(x)
   x = Activation('relu')(x)
 
-  # code.interact(local=locals())
   # cannot get from odd size upsampling to 28 28 even sized without
   # padding the MNIST data bit...
-  dcg = Deconvolution2D(n_chan, 5, 5, output_shape=(128, n_chan, 28, 28), 
-                        border_mode='same', activation='sigmoid', subsample=(2,2), 
-                        init='orthogonal', dim_ordering='th')
-  g = dcg(x)
-
-  
+  dcg_s = Deconvolution2D(n_chan, 5, 5, output_shape=(128, n_chan, 28, 28), 
+                          border_mode='same', activation='sigmoid', subsample=(2,2), 
+                          init='orthogonal', dim_ordering='th')
+  dcg_v = Deconvolution2D(n_chan, 5, 5, output_shape=(128, n_chan, 29, 29), 
+                          border_mode='valid', activation='sigmoid', subsample=(2,2), 
+                          init='orthogonal', dim_ordering='th')
+  g = dcg_v(x)
 
   return g

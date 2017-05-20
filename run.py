@@ -32,8 +32,10 @@ def train(args):
   # np.random.seed(1234)
 
   if args.dataset == 'mnist':
-    n_dim, n_out, n_channels = 28, 10, 1
     X_train, y_train, X_val, y_val, _, _ = data.load_mnist()
+    _,_,im_rows, im_cols = X_train.shape
+    n_dim, n_out, n_channels = im_rows, 10, 1
+    
   elif args.dataset == 'random':
     n_dim, n_out, n_channels = 2, 2, 1
     X_train, y_train = data.load_noise(n=1000, d=n_dim)
