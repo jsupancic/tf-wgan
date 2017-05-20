@@ -132,14 +132,14 @@ class DCGAN(object):
         tr_g_err, tr_d_err, tr_p_real, tr_p_fake)
       print "  validation disc_loss/gen_loss/p_real/p_fake:\t\t{:.4f}\t{:.4f}\t{:.2f}\t{:.2f}".format(
         va_g_err, va_d_err, va_p_real, va_p_fake)
-      tf.summary.scalar('tr_g_err', tr_g_err)
-      tf.summary.scalar('tr_d_err', tr_d_err)
-      tf.summary.scalar('tr_p_real', tr_p_real)
-      tf.summary.scalar('tr_p_fake', tr_p_fake)
-      tf.summary.scalar('va_g_err', va_g_err)
-      tf.summary.scalar('va_d_err', va_d_err)
-      tf.summary.scalar('va_p_real', va_p_real)
-      tf.summary.scalar('va_p_fake', va_p_fake)
+      #tf.summary.scalar('tr_g_err', tr_g_err)
+      #tf.summary.scalar('tr_d_err', tr_d_err)
+      #tf.summary.scalar('tr_p_real', tr_p_real)
+      #tf.summary.scalar('tr_p_fake', tr_p_fake)
+      #tf.summary.scalar('va_g_err', va_g_err)
+      #tf.summary.scalar('va_d_err', va_d_err)
+      #tf.summary.scalar('va_p_real', va_p_real)
+      #tf.summary.scalar('va_p_fake', va_p_fake)
       
       # take samples
       samples = self.gen(np.random.rand(128, 100).astype('float32'))
