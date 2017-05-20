@@ -106,13 +106,11 @@ class DCGAN(object):
     self.sess.run(init)
 
     # train the model
-    speedup = 8 # values greater than 1 skip some examples in an epoch
     step = 0
-    n_epoch = int(n_epoch * speedup)
     for epoch in xrange(n_epoch):
       start_time = time.time()
       
-      for X_batch in iterate_minibatches(X_train, int(speedup * n_batch), shuffle=True):
+      for X_batch in iterate_minibatches(X_train, n_batch, speedup = 8, shuffle=True):
         step += 1
 
         # load the batch
@@ -134,7 +132,15 @@ class DCGAN(object):
         tr_g_err, tr_d_err, tr_p_real, tr_p_fake)
       print "  validation disc_loss/gen_loss/p_real/p_fake:\t\t{:.4f}\t{:.4f}\t{:.2f}\t{:.2f}".format(
         va_g_err, va_d_err, va_p_real, va_p_fake)
-
+      tf.summary.scalar('tr_g_err', tr_g_err)
+      tf.summary.scalar('tr_d_err', tr_d_err)
+      tf.summary.scalar('tr_p_real', tr_p_real)
+      tf.summary.scalar('tr_p_fake', tr_p_fake)
+      tf.summary.scalar('va_g_err', va_g_err)
+      tf.summary.scalar('va_d_err', va_d_err)
+      tf.summary.scalar('va_p_real', va_p_real)
+      tf.summary.scalar('va_p_fake', va_p_fake)
+      
       # take samples
       samples = self.gen(np.random.rand(128, 100).astype('float32'))
       samples = samples[:42]
@@ -151,7 +157,8 @@ class DCGAN(object):
       print("++tf.summary.image")
       #tf.summary.scalar('tr_g_err', tr_g_err)
       #code.interact(local=locals())
-      image_of_samples3d = np.rollaxis(np.tile(image_of_samples,(3,1,1,1)),0,4);
+      image_of_samples3d = np.uint8(
+         255*np.rollaxis(np.tile(image_of_samples,(3,1,1,1)),0,4))
       tf.summary.image('mnist_samples_%07d' % (epoch + 1), image_of_samples3d)
       merged = tf.summary.merge_all()
       summary = self.sess.run(merged)
@@ -199,11 +206,11 @@ class DCGAN(object):
 # ----------------------------------------------------------------------------
 # helpers
 
-def iterate_minibatches(inputs, batchsize, shuffle=False):
+def iterate_minibatches(inputs, batchsize, speedup = 1, shuffle=False):
   if shuffle:
     indices = np.arange(len(inputs))
     np.random.shuffle(indices)
-  for start_idx in range(0, len(inputs) - batchsize + 1, batchsize):
+  for start_idx in range(0, len(inputs) - batchsize + 1, batchsize * speedup):
     if shuffle:
         excerpt = indices[start_idx:start_idx + batchsize]
     else:
@@ -242,19 +249,31 @@ def make_dcgan_generator(Xk_g, n_lat, n_chan=1):
   x = BatchNormalization()(x)
   x = Activation('relu')(x)
 
-  x = Dense(n_g_hid2*7*7)(x)
+  x = Dense(n_g_hid2*(7)*(7))(x)
   x = BatchNormalization()(x)
   x = Activation('relu')(x)
   x = Reshape((n_g_hid2, 7, 7))(x)
 
-  x = Deconvolution2D(64, 5, 5, output_shape=(128, 64, 14, 14), 
-        border_mode='same', activation=None, subsample=(2,2), 
-        init='orthogonal', dim_ordering='th')(x)
+  dcs = Deconvolution2D(64, 5, 5, output_shape=(128, 64, 14, 14), 
+                        border_mode='same', activation=None, subsample=(2,2), 
+                        init='orthogonal', dim_ordering='th')  
+  #dcv = Deconvolution2D(64, 5, 5, output_shape=(128, 64, 15, 15), 
+  #                      border_mode='valid', activation=None, subsample=(2,2), 
+  #                      init='orthogonal', dim_ordering='th')
+  #dcs.compute_output_shape();
+  #code.interact(local=locals())
+  x = dcs(x)
   x = BatchNormalization(axis=1)(x)
   x = Activation('relu')(x)
 
-  g = Deconvolution2D(n_chan, 5, 5, output_shape=(128, n_chan, 28, 28), 
-        border_mode='same', activation='sigmoid', subsample=(2,2), 
-        init='orthogonal', dim_ordering='th')(x)
+  # code.interact(local=locals())
+  # cannot get from odd size upsampling to 28 28 even sized without
+  # padding the MNIST data bit...
+  dcg = Deconvolution2D(n_chan, 5, 5, output_shape=(128, n_chan, 28, 28), 
+                        border_mode='same', activation='sigmoid', subsample=(2,2), 
+                        init='orthogonal', dim_ordering='th')
+  g = dcg(x)
+
+  
 
   return g
