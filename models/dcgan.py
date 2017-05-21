@@ -81,6 +81,8 @@ class DCGAN(object):
     summary_p_fake = tf.summary.scalar('p_fake', self.p_fake)
     self.loss_summary = tf.summary.merge([
       summary_loss_g, summary_loss_d, summary_d_real, summary_d_fake, summary_p_real, summary_p_fake]);
+    self.im_summary_image = tf.placeholder(tf.uint8);
+    self.im_summary = tf.summary.image('samples',self.im_summary_image)
     
     # create an optimizer
     lr = opt_params['lr']
@@ -172,9 +174,10 @@ class DCGAN(object):
       #tf.summary.scalar('tr_g_err', tr_g_err)
       image_of_samples3d = np.uint8(
         255*np.rollaxis(np.tile(image_of_samples,(3,1,1,1)),0,4))
-      im_summary = tf.summary.image('mnist_samples_%07d' % (epoch + 1), image_of_samples3d)
+      #im_summary = tf.summary.image('mnist_samples_%07d' % (epoch + 1), image_of_samples3d)
       #merged = tf.summary.merge_all()
-      summary = self.sess.run(im_summary)
+      feed_dict[self.im_summary_image] = image_of_samples3d
+      summary = self.sess.run(self.im_summary, feed_dict=feed_dict)
       summary_writer.add_summary(summary, epoch)
       #summary = self.sess.run(self.loss_summary)      
       saver.save(self.sess, checkpoint_root, global_step=step)
