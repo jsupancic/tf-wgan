@@ -67,15 +67,21 @@ class DCGAN(object):
     self.loss_d = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=d_real, labels=one)) \
                 + tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=d_fake, labels=zero))
     #code.interact(local=locals())
-    #self.summary_loss_g = tf.summary.scalar('loss_g', self.loss_g)
-    #self.summary_loss_d = tf.summary.scalar('loss_d', self.loss_d)
+    summary_loss_g = tf.summary.scalar('loss_g', self.loss_g)
+    summary_loss_d = tf.summary.scalar('loss_d', self.loss_d)
     
     # compute and store discriminator probabilities
     self.d_real = tf.reduce_mean(tf.sigmoid(d_real))
     self.d_fake = tf.reduce_mean(tf.sigmoid(d_fake))
     self.p_real = tf.reduce_mean(tf.round(tf.sigmoid(d_real)))
     self.p_fake = tf.reduce_mean(tf.round(tf.sigmoid(d_fake)))
-
+    summary_d_real = tf.summary.scalar('d_real', self.d_real)
+    summary_d_fake = tf.summary.scalar('d_fake', self.d_fake)
+    summary_p_real = tf.summary.scalar('p_real', self.p_real)
+    summary_p_fake = tf.summary.scalar('p_fake', self.p_fake)
+    self.loss_summary = tf.summary.merge([
+      summary_loss_g, summary_loss_d, summary_d_real, summary_d_fake, summary_p_real, summary_p_fake]);
+    
     # create an optimizer
     lr = opt_params['lr']
     optimizer_g = tf.train.AdamOptimizer(3e-4)
@@ -125,7 +131,8 @@ class DCGAN(object):
         # self.train_d(feed_dict)
         #feed_dict['generator/batch_normalization_1/keras_learning_phase'] = tf.placeholder(
         #  dtype='bool', name='keras_learning_phase')
-        self.train(feed_dict)
+        loss_summary,_ = self.train(feed_dict)
+        summary_writer.add_summary(loss_summary, epoch)
 
       # log results at the end of batch
       tr_g_err, tr_d_err, tr_p_real, tr_p_fake = self.eval_err(X_train)
@@ -169,6 +176,7 @@ class DCGAN(object):
       #merged = tf.summary.merge_all()
       summary = self.sess.run(im_summary)
       summary_writer.add_summary(summary, epoch)
+      #summary = self.sess.run(self.loss_summary)      
       saver.save(self.sess, checkpoint_root, global_step=step)
 
   def gen(self, noise):
@@ -185,7 +193,7 @@ class DCGAN(object):
     return loss_d
 
   def train(self, feed_dict):
-    return self.sess.run(self.train_op, feed_dict=feed_dict)
+    return self.sess.run([self.loss_summary, self.train_op], feed_dict=feed_dict)
 
   def load_batch(self, X_train, noise, train=True):
     X_g_in, X_d_in = self.inputs
