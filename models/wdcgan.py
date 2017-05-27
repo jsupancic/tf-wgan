@@ -70,6 +70,18 @@ class WDCGAN(object):
     self.p_real = tf.reduce_mean(tf.sigmoid(d_real))
     self.p_fake = tf.reduce_mean(tf.sigmoid(d_fake))
 
+    # Craete the tensorboard summaries
+    summary_loss_g = tf.summary.scalar('loss_g', self.loss_g)
+    summary_loss_d = tf.summary.scalar('loss_d', self.loss_d)    
+    summary_d_real = tf.summary.scalar('d_real', self.d_real)
+    summary_d_fake = tf.summary.scalar('d_fake', self.d_fake)
+    summary_p_real = tf.summary.scalar('p_real', self.p_real)
+    summary_p_fake = tf.summary.scalar('p_fake', self.p_fake)
+    self.loss_summary = tf.summary.merge([
+      summary_loss_g, summary_loss_d, summary_d_real, summary_d_fake, summary_p_real, summary_p_fake]);
+    self.im_summary_image = tf.placeholder(tf.uint8);
+    self.im_summary = tf.summary.image('samples',self.im_summary_image)
+    
     # create an optimizer
     lr = opt_params['lr']
     optimizer_g = tf.train.RMSPropOptimizer(lr)
@@ -97,6 +109,9 @@ class WDCGAN(object):
     init = tf.global_variables_initializer()
     self.sess.run(init)
 
+    # summarization
+    summary_writer = tf.summary.FileWriter(logdir, self.sess.graph)
+    
     # train the model
     step, g_step, epoch = 0, 0, 0
     while mnist.train.epochs_completed < n_epoch:
@@ -131,23 +146,36 @@ class WDCGAN(object):
         print 'Epoch: %3d, Gen step: %4d (%3.1f s), Disc loss: %.6f, Gen loss %.6f' % \
           (mnist.train.epochs_completed, g_step, tot_time, loss_d, loss_g)
 
+      # store the losses
+      print("Tensorboard: Storing loss")
+      loss_summary = self.sess.run(self.loss_summary, feed_dict=feed_dict)
+      summary_writer.add_summary(loss_summary, epoch)
+      
       # take samples
       if g_step % 100 == 0:
         noise = np.random.rand(n_batch,100).astype('float32')
         samples = self.gen(noise)
         samples = samples[:42]
         fname = logdir + '.mnist_samples-%d.png' % g_step
-        plt.imsave(fname,
-                   (samples.reshape(6, 7, 28, 28)
-                           .transpose(0, 2, 1, 3)
-                           .reshape(6*28, 7*28)),
-                   cmap='gray')
+        image_of_samples = (samples.reshape(6, 7, 28, 28)
+                            .transpose(0, 2, 1, 3)
+                            .reshape(6*28, 7*28))
+        plt.imsave(fname, image_of_samples,cmap='gray')
 
+        # send the visualization to tensorboard
+        print("Tensorboard: Saving Image")
+        image_of_samples3d = np.uint8(
+          255*np.rollaxis(np.tile(image_of_samples,(3,1,1,1)),0,4))
+        feed_dict[self.im_summary_image] = image_of_samples3d
+        summary = self.sess.run(self.im_summary, feed_dict=feed_dict)
+        summary_writer.add_summary(summary, epoch)
+        #saver.save(self.sess, checkpoint_root, global_step=step)        
+        
       # saver.save(self.sess, checkpoint_root, global_step=step)
 
   def gen(self, noise):
     X_g_in, X_d_in = self.inputs
-    feed_dict = { X_g_in : noise, K.learning_phase() : False }
+    feed_dict = { X_g_in : noise, K.learning_phase() : True }
     return self.sess.run(self.P, feed_dict=feed_dict)
 
   def train_g(self, feed_dict):
@@ -191,24 +219,24 @@ class WDCGAN(object):
     
 # ----------------------------------------------------------------------------
 
-def conv2D_init(shape, dim_ordering='tf', name=None):
-   return initializations.normal(shape, scale=0.02, dim_ordering=dim_ordering, name=name)
+def conv2D_init():
+   return initializers.RandomNormal(stddev=0.02);
 
 def make_dcgan_discriminator(Xk_d):
   x = Convolution2D(nb_filter=64, nb_row=4, nb_col=4, subsample=(2,2),
-        activation=None, border_mode='same', init=conv2D_init,
+        activation=None, border_mode='same', init=conv2D_init(),
         dim_ordering='th')(Xk_d)
   # x = BatchNormalization(axis=1)(x) # <- makes things much worse!
   x = LeakyReLU(0.2)(x)
 
   x = Convolution2D(nb_filter=128, nb_row=4, nb_col=4, subsample=(2,2),
-        activation=None, border_mode='same', init=conv2D_init,
+        activation=None, border_mode='same', init=conv2D_init(),
         dim_ordering='th')(x)
   x = BatchNormalization(axis=1)(x)
   x = LeakyReLU(0.2)(x)
 
   x = Flatten()(x)
-  x = Dense(1024, init=conv2D_init)(x)
+  x = Dense(1024, init=conv2D_init())(x)
   x = BatchNormalization()(x)
   x = LeakyReLU(0.2)(x)
 
@@ -220,23 +248,23 @@ def make_dcgan_generator(Xk_g, n_lat, n_chan=1):
   n_g_hid1 = 1024 # size of hidden layer in generator layer 1
   n_g_hid2 = 128  # size of hidden layer in generator layer 2
 
-  x = Dense(n_g_hid1, init=conv2D_init)(Xk_g)
+  x = Dense(n_g_hid1, init=conv2D_init())(Xk_g)
   x = BatchNormalization()(x)
   x = Activation('relu')(x)
 
-  x = Dense(n_g_hid2*7*7, init=conv2D_init)(x)
+  x = Dense(n_g_hid2*7*7, init=conv2D_init())(x)
   x = Reshape((n_g_hid2, 7, 7))(x)
   x = BatchNormalization(axis=1)(x)
   x = Activation('relu')(x)
 
   x = Deconvolution2D(64, 5, 5, output_shape=(128, 64, 14, 14), 
         border_mode='same', activation=None, subsample=(2,2), 
-        init=conv2D_init, dim_ordering='th')(x)
+        init=conv2D_init(), dim_ordering='th')(x)
   x = BatchNormalization(axis=1)(x)
   x = Activation('relu')(x)
 
   g = Deconvolution2D(n_chan, 5, 5, output_shape=(128, n_chan, 28, 28), 
         border_mode='same', activation='sigmoid', subsample=(2,2), 
-        init=conv2D_init, dim_ordering='th')(x)
+        init=conv2D_init(), dim_ordering='th')(x)
 
   return g

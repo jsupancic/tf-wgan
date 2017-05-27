@@ -14,9 +14,9 @@ def make_parser():
   train_parser.set_defaults(func=train)
 
   train_parser.add_argument('--dataset', default='mnist')
-  train_parser.add_argument('--model', default='dcgan')
+  train_parser.add_argument('--model', default='wdcgan')
   train_parser.add_argument('-e', '--epochs', type=int, default=200)
-  train_parser.add_argument('-l', '--logdir', default='logs/mnist-run')
+  train_parser.add_argument('-l', '--logdir', default='logs/default-run')
   train_parser.add_argument('--lr', type=float, default=5e-5)
   train_parser.add_argument('--c', type=float, default=1e-2)
   train_parser.add_argument('--n-critic', type=int, default=5)
@@ -35,6 +35,11 @@ def train(args):
     X_train, y_train, X_val, y_val, _, _ = data.load_mnist()
     _,_,im_rows, im_cols = X_train.shape
     n_dim, n_out, n_channels = im_rows, 10, 1
+
+  elif args.dataset == 'cifar':
+    X_train, y_train, X_val, y_val = data.load_cifar10()
+    _,n_channels,im_rows, im_cols = X_train.shape
+    n_dim, n_out, n_channels = im_rows, 10, n_channels
     
   elif args.dataset == 'random':
     n_dim, n_out, n_channels = 2, 2, 1

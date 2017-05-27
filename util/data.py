@@ -79,7 +79,7 @@ def load_mnist():
     # following the shape convention: (examples, channels, rows, columns)
     data = data.reshape(-1, 1, 28, 28)
     # make it an odd shape (29,29)
-    data = np.pad(data,((0,0),(0,0),(0,1),(0,1)),'reflect')
+    #data = np.pad(data,((0,0),(0,0),(0,1),(0,1)),'reflect')
     print('Data Shape = %s' % str(data.shape))
     # The inputs come as bytes, we convert them to float32 in range [0,1].
     # (Actually to range [0, 255/256], for compatibility to the version

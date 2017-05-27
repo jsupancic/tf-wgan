@@ -104,3 +104,4 @@ sftp-config.json
 # temporary files
 *~
 logs/
+cifar-10-batches-py/
