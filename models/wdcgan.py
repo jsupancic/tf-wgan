@@ -145,12 +145,11 @@ class WDCGAN(object):
         tot_time = time.time() - start_time
         print 'Epoch: %3d, Gen step: %4d (%3.1f s), Disc loss: %.6f, Gen loss %.6f' % \
           (mnist.train.epochs_completed, g_step, tot_time, loss_d, loss_g)
-
-      # store the losses
-      print("Tensorboard: Storing loss")
-      loss_summary = self.sess.run(self.loss_summary, feed_dict=feed_dict)
-      summary_writer.add_summary(loss_summary, epoch)
-      
+        # store the losses
+        print("Tensorboard: Storing loss")
+        loss_summary = self.sess.run(self.loss_summary, feed_dict=feed_dict)
+        summary_writer.add_summary(loss_summary, epoch)
+        
       # take samples
       if g_step % 100 == 0:
         noise = np.random.rand(n_batch,100).astype('float32')
