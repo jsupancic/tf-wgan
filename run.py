@@ -16,7 +16,7 @@ def make_parser():
   train_parser.set_defaults(func=train)
   datestring = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
 
-  train_parser.add_argument('--dataset', default='mnist')
+  train_parser.add_argument('--dataset', default='cifar')
   train_parser.add_argument('--model', default='wdcgan')
   train_parser.add_argument('-e', '--epochs', type=int, default=200)
   train_parser.add_argument('-l', '--logdir', default=('logs/default-run/' + datestring))
@@ -42,6 +42,7 @@ def train(args):
 
   elif args.dataset == 'cifar':
     X_train, y_train, X_val, y_val = data.load_cifar10()
+    dataset = data.MemoryDataset(X_train, y_train, X_val, y_val);
     _,n_channels,im_rows, im_cols = X_train.shape
     n_dim, n_out, n_channels = im_rows, 10, n_channels
     

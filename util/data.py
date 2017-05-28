@@ -138,3 +138,33 @@ def whiten(X_train, X_valid):
   X_train = (X_train - offset) / scale
   X_valid = (X_valid - offset) / scale
   return X_train, X_valid    
+
+# ----------------------------------------------------------------------------
+# 
+
+class MemoryDataset:
+  class Subset:
+    def __init__(self, X,y):
+      self.X = X;
+      self.y = y;
+      self.epochs_completed = 0;
+      self.num_samples = X.shape[0]
+      self.produced_samples = 0
+      
+    # Usage:
+    #  X_batch = self.dataset.train.next_batch(n_batch)[0]
+    def next_batch(self, n_batch):
+      self.produced_samples += n_batch
+      self.epochs_completed = self.num_samples/self.produced_samples
+      
+      indices = np.arange(self.num_samples)
+      np.random.shuffle(indices)
+      excerpt = indices[0:0 + n_batch]      
+      return self.X[excerpt], self.y[excerpt]
+  
+  def __init__(self, X_train, y_train, X_val, y_val):
+    self.train = self.Subset(X_train, y_train)
+    self.val   = self.Subset(X_val  , y_val)
+    self.width  = X_train.shape[2]
+    self.height = X_train.shape[3]
+    

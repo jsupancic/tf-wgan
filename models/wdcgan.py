@@ -1,3 +1,4 @@
+import code
 import os
 import time
 import numpy as np
@@ -6,7 +7,7 @@ import tensorflow as tf
 
 import matplotlib.pyplot as plt
 
-from keras.layers.convolutional import Convolution2D, Deconvolution2D
+from keras.layers.convolutional import Convolution2D, Deconvolution2D, Conv2DTranspose
 from keras.layers.normalization import BatchNormalization
 from keras.layers.advanced_activations import LeakyReLU
 from keras.layers.core import Dense, Reshape, Flatten, Activation
@@ -34,7 +35,7 @@ class WDCGAN(object):
     # create generator
     with tf.name_scope('generator'):
       Xk_g = Input(shape=(n_lat,))
-      g = make_dcgan_generator(Xk_g, n_lat, n_chan)
+      g = make_dcgan_generator(Xk_g, n_lat, self.dataset.width, self.dataset.height, n_chan)
 
     # create discriminator
     with tf.name_scope('discriminator'):
@@ -121,7 +122,9 @@ class WDCGAN(object):
 
         # load the batch
         X_batch = self.dataset.train.next_batch(n_batch)[0]
-        X_batch = X_batch.reshape((n_batch, 1, 28, 28))
+        self.data_shape = X_batch.shape
+        X_batch = X_batch.reshape((self.data_shape[0], self.data_shape[1],
+                                   self.data_shape[2], self.data_shape[3]))
         noise = np.random.rand(n_batch,100).astype('float32')
         feed_dict = self.load_batch(X_batch, noise)
 
@@ -153,10 +156,10 @@ class WDCGAN(object):
         samples = self.gen(noise)
         samples = samples[:42]
         fname = logdir + '.data_samples-%d.png' % g_step
-        image_of_samples = (samples.reshape(6, 7, 28, 28)
+        image_of_samples = (samples.reshape(6, 7, self.data_shape[2], self.data_shape[3])
                             .transpose(0, 2, 1, 3)
-                            .reshape(6*28, 7*28))
-        plt.imsave(fname, image_of_samples,cmap='gray')
+                            .reshape(6*self.data_shape[2], 7*self.data_shape[3]))
+        plt.imsave(fname, image_of_samples)#,cmap='gray')
 
         # send the visualization to tensorboard
         print("Tensorboard: Saving Image")
@@ -236,11 +239,11 @@ def make_dcgan_discriminator(Xk_d):
   x = BatchNormalization()(x)
   x = LeakyReLU(0.2)(x)
 
-  d = Dense(1, activation=None)(x)
-
+  d = Dense(1, activation=None)(x)  
+  
   return d
 
-def make_dcgan_generator(Xk_g, n_lat, n_chan=1):
+def make_dcgan_generator(Xk_g, n_lat, im_width, im_height, n_chan=1):
   n_g_hid1 = 1024 # size of hidden layer in generator layer 1
   n_g_hid2 = 128  # size of hidden layer in generator layer 2
 
@@ -248,19 +251,28 @@ def make_dcgan_generator(Xk_g, n_lat, n_chan=1):
   x = BatchNormalization()(x)
   x = Activation('relu')(x)
 
-  x = Dense(n_g_hid2*7*7, init=conv2D_init())(x)
-  x = Reshape((n_g_hid2, 7, 7))(x)
+  hid_init_sz = 8
+  x = Dense(n_g_hid2*hid_init_sz*hid_init_sz, init=conv2D_init())(x)
+  x = Reshape((n_g_hid2, hid_init_sz, hid_init_sz))(x)
   x = BatchNormalization(axis=1)(x)
   x = Activation('relu')(x)
-
-  x = Deconvolution2D(64, 5, 5, output_shape=(128, 64, 14, 14), 
+  xg = x
+  s = xg.shape
+  
+  l = Deconvolution2D(64, 5, 5,
         border_mode='same', activation=None, subsample=(2,2), 
-        init=conv2D_init(), dim_ordering='th')(x)
+        init=conv2D_init(), dim_ordering='th')
+  s = l.compute_output_shape((s))
+  print("dcgan shape = " + str(s))
+  x = l(x)
   x = BatchNormalization(axis=1)(x)
   x = Activation('relu')(x)
 
-  g = Deconvolution2D(n_chan, 5, 5, output_shape=(128, n_chan, 28, 28), 
-        border_mode='same', activation='sigmoid', subsample=(2,2), 
-        init=conv2D_init(), dim_ordering='th')(x)
-
-  return g
+  l = Deconvolution2D(n_chan, 5, 5, 
+                      border_mode='same', activation='sigmoid', subsample=(2,2), 
+                      init=conv2D_init(), dim_ordering='th')
+  s = l.compute_output_shape((s))
+  print("dcgan shape = " + str(s))
+  x = l(x)
+  
+  return x
