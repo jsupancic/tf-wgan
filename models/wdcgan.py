@@ -102,7 +102,6 @@ class WDCGAN(object):
     if tf.gfile.Exists(logdir): tf.gfile.DeleteRecursively(logdir)
     tf.gfile.MakeDirs(logdir)
 
-    mnist = self.dataset
     # init model
     init = tf.global_variables_initializer()
     self.sess.run(init)
@@ -112,7 +111,7 @@ class WDCGAN(object):
     
     # train the model
     step, g_step, epoch = 0, 0, 0
-    while mnist.train.epochs_completed < n_epoch:
+    while self.dataset.train.epochs_completed < n_epoch:
     
       n_critic = 100 if g_step < 25 or (g_step+1) % 500 == 0 else self.n_critic
 
@@ -121,7 +120,7 @@ class WDCGAN(object):
         losses_d = []
 
         # load the batch
-        X_batch = mnist.train.next_batch(n_batch)[0]
+        X_batch = self.dataset.train.next_batch(n_batch)[0]
         X_batch = X_batch.reshape((n_batch, 1, 28, 28))
         noise = np.random.rand(n_batch,100).astype('float32')
         feed_dict = self.load_batch(X_batch, noise)
@@ -142,18 +141,18 @@ class WDCGAN(object):
       if g_step < 100 or g_step % 100 == 0:
         tot_time = time.time() - start_time
         print 'Epoch: %3d, Gen step: %4d (%3.1f s), Disc loss: %.6f, Gen loss %.6f' % \
-          (mnist.train.epochs_completed, g_step, tot_time, loss_d, loss_g)
+          (self.dataset.train.epochs_completed, g_step, tot_time, loss_d, loss_g)
         # store the losses
         print("Tensorboard: Storing loss")
         loss_summary = self.sess.run(self.loss_summary, feed_dict=feed_dict)
-        summary_writer.add_summary(loss_summary, epoch)
+        summary_writer.add_summary(loss_summary, step)
         
       # take samples
       if g_step % 100 == 0:
         noise = np.random.rand(n_batch,100).astype('float32')
         samples = self.gen(noise)
         samples = samples[:42]
-        fname = logdir + '.mnist_samples-%d.png' % g_step
+        fname = logdir + '.data_samples-%d.png' % g_step
         image_of_samples = (samples.reshape(6, 7, 28, 28)
                             .transpose(0, 2, 1, 3)
                             .reshape(6*28, 7*28))
@@ -165,7 +164,7 @@ class WDCGAN(object):
           255*np.rollaxis(np.tile(image_of_samples,(3,1,1,1)),0,4))
         feed_dict[self.im_summary_image] = image_of_samples3d
         summary = self.sess.run(self.im_summary, feed_dict=feed_dict)
-        summary_writer.add_summary(summary, epoch)
+        summary_writer.add_summary(summary, step)
         #saver.save(self.sess, checkpoint_root, global_step=step)        
         
       # saver.save(self.sess, checkpoint_root, global_step=step)
