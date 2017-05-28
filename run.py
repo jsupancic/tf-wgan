@@ -1,6 +1,8 @@
 import numpy as np
 import argparse
 from util import data
+import tensorflow.examples.tutorials.mnist.input_data
+import datetime
 
 # ----------------------------------------------------------------------------
 
@@ -12,11 +14,12 @@ def make_parser():
 
   train_parser = subparsers.add_parser('train', help='Train model')
   train_parser.set_defaults(func=train)
+  datestring = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
 
   train_parser.add_argument('--dataset', default='mnist')
   train_parser.add_argument('--model', default='wdcgan')
   train_parser.add_argument('-e', '--epochs', type=int, default=200)
-  train_parser.add_argument('-l', '--logdir', default='logs/default-run')
+  train_parser.add_argument('-l', '--logdir', default=('logs/default-run/' + datestring))
   train_parser.add_argument('--lr', type=float, default=5e-5)
   train_parser.add_argument('--c', type=float, default=1e-2)
   train_parser.add_argument('--n-critic', type=int, default=5)
@@ -32,6 +35,7 @@ def train(args):
   # np.random.seed(1234)
 
   if args.dataset == 'mnist':
+    dataset = tensorflow.examples.tutorials.mnist.input_data.read_data_sets('data/mnist')
     X_train, y_train, X_val, y_val, _, _ = data.load_mnist()
     _,_,im_rows, im_cols = X_train.shape
     n_dim, n_out, n_channels = im_rows, 10, 1
@@ -49,7 +53,8 @@ def train(args):
     raise ValueError('Invalid dataset name: %s' % args.dataset)
 
   # set up optimization params
-  opt_params = { 'lr' : args.lr, 'c' : args.c, 'n_critic' : args.n_critic }
+  opt_params = { 'lr' : args.lr, 'c' : args.c, 'n_critic' : args.n_critic,
+                 'dataset': dataset}
   
   # create model
   if args.model == 'dcgan':

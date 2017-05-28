@@ -14,8 +14,6 @@ from keras.layers import Input
 from keras.models import Model
 from keras import initializers
 
-from tensorflow.examples.tutorials.mnist import input_data
-
 # ----------------------------------------------------------------------------
 
 default_opt = { 'lr' : 5e-5, 'c' : 1e-2, 'n_critic' : 5 }
@@ -26,6 +24,7 @@ class WDCGAN(object):
   def __init__(self, n_dim, n_chan=1, opt_alg='rmsprop', opt_params=default_opt):
     self.n_critic = opt_params['n_critic']
     self.c        = opt_params['c']
+    self.dataset  = opt_params['dataset']
     n_lat = 100
 
     # create session
@@ -103,8 +102,7 @@ class WDCGAN(object):
     if tf.gfile.Exists(logdir): tf.gfile.DeleteRecursively(logdir)
     tf.gfile.MakeDirs(logdir)
 
-    mnist = input_data.read_data_sets('data/mnist')
-
+    mnist = self.dataset
     # init model
     init = tf.global_variables_initializer()
     self.sess.run(init)
