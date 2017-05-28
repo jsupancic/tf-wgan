@@ -145,7 +145,7 @@ class WDCGAN(object):
         # store the losses
         print("Tensorboard: Storing loss")
         loss_summary = self.sess.run(self.loss_summary, feed_dict=feed_dict)
-        summary_writer.add_summary(loss_summary, step)
+        summary_writer.add_summary(loss_summary, g_step)
         
       # take samples
       if g_step % 100 == 0:
@@ -164,7 +164,7 @@ class WDCGAN(object):
           255*np.rollaxis(np.tile(image_of_samples,(3,1,1,1)),0,4))
         feed_dict[self.im_summary_image] = image_of_samples3d
         summary = self.sess.run(self.im_summary, feed_dict=feed_dict)
-        summary_writer.add_summary(summary, step)
+        summary_writer.add_summary(summary, g_step)
         #saver.save(self.sess, checkpoint_root, global_step=step)        
         
       # saver.save(self.sess, checkpoint_root, global_step=step)
