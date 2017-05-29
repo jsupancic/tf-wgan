@@ -151,14 +151,17 @@ class WDCGAN(object):
         summary_writer.add_summary(loss_summary, g_step)
         
       # take samples
-      if g_step % 100 == 0:
+      if g_step % 25 == 0:
         noise = np.random.rand(n_batch,100).astype('float32')
         samples = self.gen(noise)
         samples = samples[:42]
         fname = logdir + '.data_samples-%d.png' % g_step
-        image_of_samples = (samples.reshape(6, 7, self.data_shape[2], self.data_shape[3])
-                            .transpose(0, 2, 1, 3)
-                            .reshape(6*self.data_shape[2], 7*self.data_shape[3]))
+        #code.interact(local=locals())
+        image_of_samples = samples.reshape(6, 7, self.data_shape[1], self.data_shape[2], self.data_shape[3])
+        image_of_samples = image_of_samples.transpose(0, 1, 3, 4, 2)
+        image_of_samples = image_of_samples.reshape(
+          6*self.data_shape[2],
+          7*self.data_shape[3],self.data_shape[1])
         plt.imsave(fname, image_of_samples)#,cmap='gray')
 
         # send the visualization to tensorboard
