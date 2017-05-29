@@ -154,20 +154,39 @@ class WDCGAN(object):
       if g_step % 25 == 0:
         noise = np.random.rand(n_batch,100).astype('float32')
         samples = self.gen(noise)
-        samples = samples[:42]
+        samples = samples[:42] # instead, try getting 42 examples from the dataset
         fname = logdir + '.data_samples-%d.png' % g_step
+        viz_samples = self.dataset.train.next_batch(42)[0]
         #code.interact(local=locals())
-        image_of_samples = samples.reshape(6, 7, self.data_shape[1], self.data_shape[2], self.data_shape[3])
-        image_of_samples = image_of_samples.transpose(0, 1, 3, 4, 2)
+        #image_of_samples = viz_samples
+        #image_of_samples = image_of_samples.transpose(1, 0, 2,3)
+        #image_of_samples = image_of_samples.reshape(self.data_shape[1], 6, 7, self.data_shape[2], self.data_shape[3])
+        #image_of_samples = image_of_samples.reshape(
+        #  self.data_shape[1],
+        #  6*self.data_shape[2],
+        #  7*self.data_shape[3])
+
+        image_of_samples = samples
+        #image_of_samples = viz_samples;
+        image_of_samples = image_of_samples.reshape(6,7,self.data_shape[1],self.data_shape[2], self.data_shape[3])
+        image_of_samples = image_of_samples.transpose(0,3,1,4,2)
+        #image_of_samples = viz_samples.reshape(6, 7, self.data_shape[2], self.data_shape[3], self.data_shape[1])
+        #image_of_samples = image_of_samples.transpose(2, 0, 1, 3, 4)
         image_of_samples = image_of_samples.reshape(
           6*self.data_shape[2],
-          7*self.data_shape[3],self.data_shape[1])
+          7*self.data_shape[3],
+          self.data_shape[1])
+        #image_of_samples = image_of_samples.transpose(1,2,0)
+        image_of_samples = np.uint8(image_of_samples)
         plt.imsave(fname, image_of_samples)#,cmap='gray')
 
         # send the visualization to tensorboard
         print("Tensorboard: Saving Image")
-        image_of_samples3d = np.uint8(
-          255*np.rollaxis(np.tile(image_of_samples,(3,1,1,1)),0,4))
+        if self.data_shape[1] == 1:
+          image_of_samples3d = np.uint8(
+            255*np.rollaxis(np.tile(image_of_samples,(3,1,1,1)),0,4))
+        else:
+          image_of_samples3d = image_of_samples.reshape((1,) + image_of_samples.shape)
         feed_dict[self.im_summary_image] = image_of_samples3d
         summary = self.sess.run(self.im_summary, feed_dict=feed_dict)
         summary_writer.add_summary(summary, g_step)
