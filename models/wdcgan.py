@@ -177,14 +177,13 @@ class WDCGAN(object):
           7*self.data_shape[3],
           self.data_shape[1])
         #image_of_samples = image_of_samples.transpose(1,2,0)
-        image_of_samples = np.uint8(image_of_samples)
+        image_of_samples = np.uint8(255*image_of_samples)
         plt.imsave(fname, image_of_samples)#,cmap='gray')
 
         # send the visualization to tensorboard
         print("Tensorboard: Saving Image")
         if self.data_shape[1] == 1:
-          image_of_samples3d = np.uint8(
-            255*np.rollaxis(np.tile(image_of_samples,(3,1,1,1)),0,4))
+          image_of_samples3d = np.rollaxis(np.tile(image_of_samples,(3,1,1,1)),0,4)
         else:
           image_of_samples3d = image_of_samples.reshape((1,) + image_of_samples.shape)
         feed_dict[self.im_summary_image] = image_of_samples3d
