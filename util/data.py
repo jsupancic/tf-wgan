@@ -155,11 +155,12 @@ class MemoryDataset:
     #  X_batch = self.dataset.train.next_batch(n_batch)[0]
     def next_batch(self, n_batch):
       self.produced_samples += n_batch
-      self.epochs_completed = self.num_samples/self.produced_samples
+      self.epochs_completed = self.produced_samples/self.num_samples
       
       indices = np.arange(self.num_samples)
       np.random.shuffle(indices)
-      excerpt = indices[0:0 + n_batch]      
+      excerpt = indices[0:0 + n_batch]
+      #excerpt = indices[np.uint(np.ones(n_batch))]
       return self.X[excerpt], self.y[excerpt]
   
   def __init__(self, X_train, y_train, X_val, y_val):

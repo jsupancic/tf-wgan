@@ -18,9 +18,9 @@ def make_parser():
 
   train_parser.add_argument('--dataset', default='cifar')
   train_parser.add_argument('--model', default='wdcgan')
-  train_parser.add_argument('-e', '--epochs', type=int, default=200)
+  train_parser.add_argument('-e', '--epochs', type=int, default=500)
   train_parser.add_argument('-l', '--logdir', default=('logs/default-run/' + datestring))
-  train_parser.add_argument('--lr', type=float, default=5e-5)
+  train_parser.add_argument('--lr', type=float, default=5e-4)
   train_parser.add_argument('--c', type=float, default=1e-2)
   train_parser.add_argument('--n-critic', type=int, default=5)
   train_parser.add_argument('--n-batch', type=int, default=128)

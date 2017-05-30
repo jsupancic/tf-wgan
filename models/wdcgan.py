@@ -17,7 +17,7 @@ from keras import initializers
 
 # ----------------------------------------------------------------------------
 
-default_opt = { 'lr' : 5e-5, 'c' : 1e-2, 'n_critic' : 5 }
+default_opt = { 'lr' : 1e-3, 'c' : 1e-2, 'n_critic' : 5 }
 
 class WDCGAN(object):
   """Wasserstein Deep Convolutional Generative Adversarial Network"""
@@ -84,9 +84,18 @@ class WDCGAN(object):
     
     # create an optimizer
     lr = opt_params['lr']
-    optimizer_g = tf.train.RMSPropOptimizer(lr)
-    optimizer_d = tf.train.RMSPropOptimizer(lr)
-
+    #optimizer_g = tf.train.RMSPropOptimizer(lr)
+    #optimizer_d = tf.train.RMSPropOptimizer(lr)
+    # beta1 = decay rate for first moment
+    # beta2 = decay rate for second moment
+    self.global_decay_step = tf.Variable(0, trainable=False)
+    self.active_learning_rate = tf.train.exponential_decay(lr, self.global_decay_step,
+                                                           self.dataset.train.num_samples, 0.95, staircase=True)
+    optimizer_g = tf.train.AdamOptimizer(self.active_learning_rate,
+                                         beta1=.5, beta2=.9,epsilon=1e-05)
+    optimizer_d = tf.train.AdamOptimizer(self.active_learning_rate,
+                                         beta1=.5, beta2=.9,epsilon=1e-05)
+    
     # get gradients
     gv_g = optimizer_g.compute_gradients(self.loss_g, self.w_g)
     gv_d = optimizer_d.compute_gradients(self.loss_d, self.w_d)
@@ -98,6 +107,15 @@ class WDCGAN(object):
     # clip the weights, so that they fall in [-c, c]
     self.clip_updates = [w.assign(tf.clip_by_value(w, -self.c, self.c)) for w in self.w_d]
 
+  def make_noise(self, npoints, ndim):
+    # noise = np.random.rand(n_batch,100).astype('float32')
+    # noise = np.random.rand(n_batch,100).astype('float32')
+    #code.interact(local=locals())
+    vec = np.random.randn(ndim, npoints)
+    vec /= np.linalg.norm(vec, axis=0).astype('float32')
+    vec = np.transpose(vec)
+    return vec  
+    
   def fit(self, X_train, X_val, n_epoch=10, n_batch=128, logdir='dcgan-run'):
     # initialize log directory                  
     if tf.gfile.Exists(logdir): tf.gfile.DeleteRecursively(logdir)
@@ -113,7 +131,6 @@ class WDCGAN(object):
     # train the model
     step, g_step, epoch = 0, 0, 0
     while self.dataset.train.epochs_completed < n_epoch:
-    
       n_critic = 100 if g_step < 25 or (g_step+1) % 500 == 0 else self.n_critic
 
       start_time = time.time()
@@ -125,7 +142,7 @@ class WDCGAN(object):
         self.data_shape = X_batch.shape
         X_batch = X_batch.reshape((self.data_shape[0], self.data_shape[1],
                                    self.data_shape[2], self.data_shape[3]))
-        noise = np.random.rand(n_batch,100).astype('float32')
+        noise = self.make_noise(n_batch, 100)
         feed_dict = self.load_batch(X_batch, noise)
 
         # train the critic/discriminator
@@ -135,7 +152,7 @@ class WDCGAN(object):
       loss_d = np.array(losses_d).mean()
 
       # train the generator
-      noise = np.random.rand(n_batch,100).astype('float32')
+      noise = self.make_noise(n_batch, 100)
       # noise = np.random.uniform(-1.0, 1.0, [n_batch, 100]).astype('float32')
       feed_dict = self.load_batch(X_batch, noise)
       loss_g = self.train_g(feed_dict)
@@ -152,7 +169,7 @@ class WDCGAN(object):
         
       # take samples
       if g_step % 25 == 0:
-        noise = np.random.rand(n_batch,100).astype('float32')
+        noise = self.make_noise(n_batch, 100)
         samples = self.gen(noise)
         samples = samples[:42] # instead, try getting 42 examples from the dataset
         fname = logdir + '.data_samples-%d.png' % g_step
@@ -178,7 +195,7 @@ class WDCGAN(object):
           self.data_shape[1])
         #image_of_samples = image_of_samples.transpose(1,2,0)
         image_of_samples = np.uint8(255*image_of_samples)
-        plt.imsave(fname, image_of_samples)#,cmap='gray')
+        #plt.imsave(fname, image_of_samples)#,cmap='gray')
 
         # send the visualization to tensorboard
         print("Tensorboard: Saving Image")
@@ -217,14 +234,16 @@ class WDCGAN(object):
 
   def load_batch(self, X_train, noise, train=True):
     X_g_in, X_d_in = self.inputs
-    return {X_g_in : noise, X_d_in : X_train, K.learning_phase() : train}
+    return {X_g_in : noise, X_d_in : X_train,
+            K.learning_phase() : train,
+            self.global_decay_step : self.dataset.train.epochs_completed}
 
   def eval_err(self, X, n_batch=128):
     batch_iterator = iterate_minibatches(X, n_batch, shuffle=True)
     loss_g, loss_d, p_real, p_fake = 0, 0, 0, 0
     tot_loss_g, tot_loss_d, tot_p_real, tot_p_fake = 0, 0, 0, 0
     for bn, batch in enumerate(batch_iterator):
-      noise = np.random.rand(n_batch,100)
+      noise = self.make_noise(n_batch, 100)
       feed_dict = self.load_batch(batch, noise)
       loss_g, loss_d, p_real, p_fake \
         = self.sess.run([self.d_real, self.d_fake, self.p_real, self.p_fake], 
@@ -244,19 +263,19 @@ def conv2D_init():
 
 def make_dcgan_discriminator(Xk_d):
   x = Convolution2D(nb_filter=64, nb_row=4, nb_col=4, subsample=(2,2),
-        activation=None, border_mode='same', init=conv2D_init(),
+        activation=None, border_mode='same', init='glorot_uniform',
         dim_ordering='th')(Xk_d)
-  # x = BatchNormalization(axis=1)(x) # <- makes things much worse!
+  #x = BatchNormalization(axis=1)(x) # <- makes things much worse!
   x = LeakyReLU(0.2)(x)
 
   x = Convolution2D(nb_filter=128, nb_row=4, nb_col=4, subsample=(2,2),
-        activation=None, border_mode='same', init=conv2D_init(),
+        activation=None, border_mode='same', init='glorot_uniform',
         dim_ordering='th')(x)
   x = BatchNormalization(axis=1)(x)
   x = LeakyReLU(0.2)(x)
 
   x = Flatten()(x)
-  x = Dense(1024, init=conv2D_init())(x)
+  x = Dense(1024, init='glorot_uniform')(x)
   x = BatchNormalization()(x)
   x = LeakyReLU(0.2)(x)
 
@@ -265,33 +284,45 @@ def make_dcgan_discriminator(Xk_d):
   return d
 
 def make_dcgan_generator(Xk_g, n_lat, im_width, im_height, n_chan=1):
-  n_g_hid1 = 1024 # size of hidden layer in generator layer 1
-  n_g_hid2 = 128  # size of hidden layer in generator layer 2
+  n_g_hid1 = 256  # size of hidden layer in generator layer 1
+  n_g_hid2 = 32   # size of hidden layer in generator layer 2
 
-  x = Dense(n_g_hid1, init=conv2D_init())(Xk_g)
+  x = Dense(n_g_hid1, init='glorot_uniform')(Xk_g)
   x = BatchNormalization()(x)
-  x = Activation('relu')(x)
+  x = LeakyReLU(0.02)(x)
 
-  hid_init_sz = 8
-  x = Dense(n_g_hid2*hid_init_sz*hid_init_sz, init=conv2D_init())(x)
+  hid_init_sz = 4
+  x = Dense(n_g_hid2*hid_init_sz*hid_init_sz, init='glorot_uniform')(x)
   x = Reshape((n_g_hid2, hid_init_sz, hid_init_sz))(x)
   x = BatchNormalization(axis=1)(x)
-  x = Activation('relu')(x)
+  x = LeakyReLU(0.02)(x)
   xg = x
   s = xg.shape
-  
-  l = Deconvolution2D(64, 5, 5,
-        border_mode='same', activation=None, subsample=(2,2), 
-        init=conv2D_init(), dim_ordering='th')
-  s = l.compute_output_shape((s))
-  print("dcgan shape = " + str(s))
-  x = l(x)
-  x = BatchNormalization(axis=1)(x)
-  x = Activation('relu')(x)
+
+  for dcIter in range(0,2):
+    l = Deconvolution2D(32, 5, 5,
+                        border_mode='same', activation=None, subsample=(2,2), 
+                        init='glorot_uniform', dim_ordering='th')
+    s = l.compute_output_shape((s))
+    print("dcgan shape = " + str(s))
+    x = l(x)
+    x = BatchNormalization(axis=1)(x)
+    x = LeakyReLU(0.02)(x)
+
+    continue;
+    # give more capacity to the generator? It's underfitting?
+    # l = Convolution2D(nb_filter=64, nb_row=5, nb_col=5, subsample=(1,1),
+    #                   activation=None, border_mode='same', init='glorot_uniform',
+    #                   dim_ordering='th')
+    # s = l.compute_output_shape((s))
+    # print("dcgan shape = " + str(s))    
+    # x = l(x)
+    # x = BatchNormalization(axis=1)(x)
+    # x = LeakyReLU(0.02)(x)    
 
   l = Deconvolution2D(n_chan, 5, 5, 
                       border_mode='same', activation='sigmoid', subsample=(2,2), 
-                      init=conv2D_init(), dim_ordering='th')
+                      init='glorot_uniform', dim_ordering='th')
   s = l.compute_output_shape((s))
   print("dcgan shape = " + str(s))
   x = l(x)
